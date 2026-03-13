@@ -1,0 +1,7 @@
+/**/*.o
+/obj
+/iso_root
+/bin
+/.*/
+/**/*.log
+/**/*.iso
