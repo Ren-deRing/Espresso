@@ -9,10 +9,66 @@ extern void* volatile isr_stub_table[];
 __attribute__((aligned(0x10))) 
 static volatile idt_entry_t idt[256];
 
-__attribute__((noreturn))
-void isr_handler() {
-    printf("Interrupt!");
-    __asm__ volatile ("cli; hlt");
+void kernel_panic(const char* reason, interrupt_frame_t* frame) {
+    __asm__ volatile ("cli");
+
+    printf("kernel panic!\n\n");
+    printf("REASON: %s\n", reason);
+    printf("----\n");
+    printf("  INT NO: %d | ERROR CODE: %d\n", frame->int_no, frame->error_code);
+    printf("  RIP: %016llx | CS: %02llx\n", frame->rip, frame->cs);
+    printf("  RFLAGS: %016llx | RSP: %016llx\n", frame->rflags, frame->rsp);
+    printf("----\n");
+    printf("SYSTEM HALTED.\n");
+
+    while (1) {
+        __asm__ volatile ("hlt");
+    }
+}
+
+void isr_handler(interrupt_frame_t frame) {
+    switch (frame.int_no) {
+        case 1:  // Debug
+        case 3:  // Breakpoint
+            printf("DEBUG: Breakpoint hit at %p\n", frame.rip);
+            return; // 원래 코드로 복귀
+
+        case 2:  // NMI (Non-Maskable Interrupt)
+            kernel_panic("NMI: UNRECOVERABLE HARDWARE ERROR", &frame);
+            break;
+
+        case 8:  // Double Fault
+            kernel_panic("DOUBLE FAULT: KERNEL STACK/STATE CORRUPTED", &frame);
+            break;
+
+        case 18: // Machine Check
+            kernel_panic("MACHINE CHECK: CPU/HARDWARE CRITICAL FAILURE", &frame);
+            break;
+
+        case 0:  // Divide By Zero
+            kernel_panic("DIVISION BY ZERO", &frame);
+            break;
+            
+        case 6:  // Invalid Opcode
+            kernel_panic("INVALID OPCODE: EXECUTING TRASH DATA", &frame);
+            break;
+
+        case 13: // General Protection Fault
+            kernel_panic("GENERAL PROTECTION FAULT", &frame);
+            break;
+
+        case 14: // Page Fault
+            kernel_panic("PAGE FAULT", &frame);
+            break;
+
+        default:
+            if (frame.int_no < 32) {
+                kernel_panic("UNHANDLED CPU EXCEPTION", &frame);
+            } else {
+                // printf("IRQ %d received.\n", frame.int_no);
+            }
+            break;
+    }
 }
 
 void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {

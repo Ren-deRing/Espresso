@@ -8,8 +8,8 @@
 #include "interrupt.h"
 #include "serial.h"
 
-__attribute__((used, section(".limine_requests_start")))
-static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
+#include "mm.h"
+#include "pmm.h"
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_hhdm_request hhdm_response = {
@@ -19,9 +19,6 @@ __attribute__((used, section(".limine_requests")))
 static volatile struct limine_framebuffer_request framebuffer_response = {
     .id = LIMINE_FRAMEBUFFER_REQUEST_ID, .revision = 0
 };
-
-__attribute__((used, section(".limine_requests_end")))
-static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
 void kmain() {
     __asm__ volatile ("cli");
@@ -37,18 +34,21 @@ void kmain() {
         "mov %%rax, %%cr4"
         : : : "rax"
     );
+    g_hhdm_offset = hhdm_response.response->offset;
 
     serial_init();
     gdt_init();
+
+    pmm_init();
+
     idt_init();
 
-    uint64_t hhdm_offset = hhdm_response.response->offset;
     struct limine_framebuffer *framebuffer = framebuffer_response.response->framebuffers[0];
 
-    printf("HHDM Offset: 0x%lx\n", hhdm_offset);
+    printf("HHDM Offset: 0x%lx\n", g_hhdm_offset);
     printf("FrameBuffer Addr: 0x%lx\n", (uint64_t)framebuffer->address);
 
-    __asm__ volatile("int $3");
+    pmm_test();
 
     __asm__ volatile ("hlt");
 }
