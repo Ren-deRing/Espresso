@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 extern uint64_t g_hhdm_offset;
+extern struct limine_memmap_response *g_memmap;
 
 static inline void* p2v(uintptr_t phys) {
     return (void*)(phys + g_hhdm_offset);

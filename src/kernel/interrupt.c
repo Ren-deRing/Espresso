@@ -93,7 +93,6 @@ void idt_init() {
     }
 
     __asm__ volatile ("lidt %0" : : "m"(idtr));
-    __asm__ volatile ("sti");
 }
 
 irq_state_t save_irq_disable() {

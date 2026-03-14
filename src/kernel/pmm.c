@@ -8,26 +8,20 @@
 #include "pmm.h"
 
 uint64_t g_hhdm_offset;
+struct limine_memmap_response *g_memmap;
 
 buddy_pmm_t g_pmm;
 
-__attribute__((used, section(".limine_requests")))
-static volatile struct limine_memmap_request memmap_request = {
-    .id = LIMINE_MEMMAP_REQUEST_ID,
-    .revision = 0
-};
-
 void pmm_init(void) {
-    struct limine_memmap_response *memmap_response = memmap_request.response;
-    if (memmap_response == NULL) {
+    if (g_memmap == NULL) {
         return;
     }
 
-    uint64_t entry_count = memmap_response->entry_count;
+    uint64_t entry_count = g_memmap->entry_count;
     uint64_t top_addr = 0;
 
     for (uint64_t i = 0; i < entry_count; i++) {
-        struct limine_memmap_entry *entry = memmap_response->entries[i];
+        struct limine_memmap_entry *entry = g_memmap->entries[i];
         uint64_t end = entry->base + entry->length;
         if (end > top_addr) top_addr = end;
     }
@@ -37,7 +31,7 @@ void pmm_init(void) {
 
     uint64_t array_phys_addr = 0;
     for (uint64_t i = 0; i < entry_count; i++) {
-        struct limine_memmap_entry *entry = memmap_response->entries[i];
+        struct limine_memmap_entry *entry = g_memmap->entries[i];
         if (entry->type == LIMINE_MEMMAP_USABLE) {
             uint64_t start = ALIGN_UP(entry->base, PAGE_SIZE);
             uint64_t end = ALIGN_DOWN(entry->base + entry->length, PAGE_SIZE);
@@ -56,7 +50,7 @@ void pmm_init(void) {
     uint64_t array_end = array_phys_addr + array_size;
 
     for (uint64_t i = 0; i < entry_count; i++) {
-        struct limine_memmap_entry *entry = memmap_response->entries[i];
+        struct limine_memmap_entry *entry = g_memmap->entries[i];
         if (entry->type != LIMINE_MEMMAP_USABLE) continue;
 
         uint64_t start = ALIGN_UP(entry->base, PAGE_SIZE);
