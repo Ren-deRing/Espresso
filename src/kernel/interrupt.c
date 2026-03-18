@@ -1,6 +1,11 @@
 #include "interrupt.h"
 #include "serial.h"
 
+#include "drivers/lapic.h"
+
+
+#include "drivers/io.h" // TODO: Remove
+
 static idtr_t volatile idtr;
 static bool volatile vectors[IDT_MAX_DESCRIPTORS];
 
@@ -8,6 +13,12 @@ extern void* volatile isr_stub_table[];
 
 __attribute__((aligned(0x10))) 
 static volatile idt_entry_t idt[256];
+
+static interrupt_handler_t volatile interrupt_handlers[256];
+
+void register_interrupt_handler(uint8_t vector, interrupt_handler_t handler) {
+    interrupt_handlers[vector] = handler;
+}
 
 void kernel_panic(const char* reason, interrupt_frame_t* frame) {
     __asm__ volatile ("cli");
@@ -26,48 +37,20 @@ void kernel_panic(const char* reason, interrupt_frame_t* frame) {
     }
 }
 
-void isr_handler(interrupt_frame_t frame) {
-    switch (frame.int_no) {
-        case 1:  // Debug
-        case 3:  // Breakpoint
-            printf("DEBUG: Breakpoint hit at %p\n", frame.rip);
-            return; // 원래 코드로 복귀
+void isr_handler(interrupt_frame_t* frame) {
+    if (frame->int_no < 32) {
+        kernel_panic("EXCEPTION", frame);
+        return;
+    }
 
-        case 2:  // NMI (Non-Maskable Interrupt)
-            kernel_panic("NMI: UNRECOVERABLE HARDWARE ERROR", &frame);
-            break;
+    interrupt_handler_t handler = (interrupt_handler_t)interrupt_handlers[frame->int_no];
 
-        case 8:  // Double Fault
-            kernel_panic("DOUBLE FAULT: KERNEL STACK/STATE CORRUPTED", &frame);
-            break;
+    if (handler) {
+        handler(frame);
+    } 
 
-        case 18: // Machine Check
-            kernel_panic("MACHINE CHECK: CPU/HARDWARE CRITICAL FAILURE", &frame);
-            break;
-
-        case 0:  // Divide By Zero
-            kernel_panic("DIVISION BY ZERO", &frame);
-            break;
-            
-        case 6:  // Invalid Opcode
-            kernel_panic("INVALID OPCODE: EXECUTING TRASH DATA", &frame);
-            break;
-
-        case 13: // General Protection Fault
-            kernel_panic("GENERAL PROTECTION FAULT", &frame);
-            break;
-
-        case 14: // Page Fault
-            kernel_panic("PAGE FAULT", &frame);
-            break;
-
-        default:
-            if (frame.int_no < 32) {
-                kernel_panic("UNHANDLED CPU EXCEPTION", &frame);
-            } else {
-                // printf("IRQ %d received.\n", frame.int_no);
-            }
-            break;
+    if (frame->int_no >= 32 && frame->int_no <= 47) {
+        lapic_eoi();
     }
 }
 
@@ -85,10 +68,10 @@ void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags) {
 
 void idt_init() {
     idtr.base = (uintptr_t)&idt[0];
-    idtr.limit = (uint16_t)sizeof(idt_entry_t) * IDT_MAX_DESCRIPTORS - 1;
+    idtr.limit = (uint16_t)sizeof(idt_entry_t) * 256 - 1;
 
-    for (uint8_t vector = 0; vector < 32; vector++) {
-        idt_set_descriptor(vector, isr_stub_table[vector], 0x8E);
+    for (int vector = 0; vector < 256; vector++) {
+        idt_set_descriptor((uint8_t)vector, isr_stub_table[vector], 0x8E);
         vectors[vector] = true;
     }
 

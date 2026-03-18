@@ -50,6 +50,20 @@ ISR_ERRCODE   29
 ISR_ERRCODE   30
 ISR_NOERRCODE 31
 
+.altmacro
+
+.macro do_isr_noerr num
+    ISR_NOERRCODE \num
+.endm
+
+i = 32
+.rept 224
+    do_isr_noerr %i
+    i = i + 1
+.endr
+
+.noaltmacro
+
 isr_common_stub:
     pushq %r15; pushq %r14; pushq %r13; pushq %r12
     pushq %r11; pushq %r10; pushq %r9;  pushq %r8
@@ -64,10 +78,13 @@ isr_common_stub:
     popq %r8;   popq %r9;   popq %r10;  popq %r11
     popq %r12;  popq %r13;  popq %r14;  popq %r15
 
-    addq $16, %rsp
-    
-    iretq
+    cmpq $0, 16(%rsp)   # iretq가 읽을 RIP 위치(16바이트 뒤)가 0인지 확인
+    jne .fine
+    ud2 
 
+.fine:
+    addq $16, %rsp
+    iretq
 
 .section .data
 .align 8
@@ -82,6 +99,12 @@ isr_common_stub:
 isr_stub_table:
     i = 0
     .rept 32
+        isr_entry %i
+        i = i + 1
+    .endr
+
+    i = 32
+    .rept 224
         isr_entry %i
         i = i + 1
     .endr

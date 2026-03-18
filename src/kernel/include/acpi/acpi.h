@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 
-#include "acpi/hpet.h"
-#include "acpi/fadt.h"
+#include "drivers/hpet.h"
+#include "drivers/fadt.h"
 
 #include "acpi/acpi_types.h"
 
@@ -41,17 +41,17 @@ struct madt_entry_header {
 } __attribute__((packed));
 
 struct acpi_info {
-    uintptr_t local_intc_addr;  // x86: LAPIC,  ARM: GICC/GICR
-    uintptr_t dist_intc_addr;   // x86: IOAPIC, ARM: GICD
-    uintptr_t timer_addr;       // x86: HPET,   ARM: Generic Timer/GTDT
+    uintptr_t lapic_addr;
+    uintptr_t ioapic_addr;
+    uintptr_t hpet_addr;
 
     struct madt* madt; 
     struct fadt* fadt;
     struct hpet* hpet;
 
-    struct acpi_sdt_header* timer_table; // HPET(x86) or GTDT(ARM)
+    struct acpi_sdt_header* timer_table; // HPET
 
-    uint32_t cpu_ids[MAX_CORES]; // x86: APIC ID, ARM: Interface Number/MPIDR
+    uint32_t cpu_ids[MAX_CORES]; // APIC ID
     int cpu_count;
 
     struct {
@@ -60,9 +60,6 @@ struct acpi_info {
         uint16_t flags;
     } int_overrides[MAX_ISO];
     int override_count;
-
-    enum { ARCH_X86_64, ARCH_AARCH64 } arch_type;
-    uint8_t gic_version;
 };
 
 extern struct acpi_info g_acpi_info;

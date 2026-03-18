@@ -22,3 +22,7 @@ struct hpet {
 #define HPET_GET_COMPARATOR_COUNT(id) ((id) & 0x1F)
 #define HPET_GET_COUNTER_SIZE(id)     (((id) >> 5) & 0x01)
 #define HPET_GET_LEGACY_REPLACEMENT(id) (((id) >> 7) & 0x01)
+
+void hpet_init();
+uint64_t hpet_get_nanos();
+void hpet_usleep(uint64_t us);

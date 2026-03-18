@@ -29,9 +29,13 @@ typedef struct {
     uint64_t rip, cs, rflags, rsp, ss;
 } __attribute__((packed)) interrupt_frame_t;
 
-void isr_handler(interrupt_frame_t interrupt_frame);
+typedef void (*interrupt_handler_t)(interrupt_frame_t* frame);
+
+void isr_handler(interrupt_frame_t* interrupt_frame);
 void idt_set_descriptor(uint8_t vector, void* isr, uint8_t flags);
 void idt_init(void);
+
+void register_interrupt_handler(uint8_t vector, interrupt_handler_t handler);
 
 typedef uint64_t irq_state_t;
 

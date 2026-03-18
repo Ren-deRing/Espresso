@@ -42,13 +42,13 @@ void acpi_init() {
             struct hpet* h = (struct hpet*)table;
     
             uint64_t val = h->address.address;
-            g_acpi_info.timer_addr = (uintptr_t)(p2v(val));
+            g_acpi_info.hpet_addr = (uintptr_t)(p2v(val));
         }
     }
 }
 
 void madt_init(struct madt* m) {
-    g_acpi_info.local_intc_addr = (uintptr_t)(m->lapic_addr);
+    g_acpi_info.lapic_addr = (uintptr_t)p2v(m->lapic_addr);
 
     uint8_t* ptr = m->entries;
     uint8_t* end = (uint8_t*)m + m->header.length;
@@ -58,7 +58,6 @@ void madt_init(struct madt* m) {
         if (entry->length < 2) break;
 
         switch (entry->type) {
-            /* x86_64*/
             case 0: { // Processor Local APIC
                 uint32_t flags = *(uint32_t*)&ptr[4];
                 if ((flags & 1) && g_acpi_info.cpu_count < MAX_CORES) {
@@ -67,7 +66,7 @@ void madt_init(struct madt* m) {
                 break;
             }
             case 1: { // I/O APIC
-                g_acpi_info.dist_intc_addr = (uintptr_t)(p2v(*(uint32_t*)&ptr[4]));
+                g_acpi_info.ioapic_addr = (uintptr_t)(p2v(*(uint32_t*)&ptr[4]));
                 break;
             }
             case 2: { // Interrupt Source Override
