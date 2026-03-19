@@ -22,6 +22,8 @@
 #include "vmm.h"
 #include "heap.h"
 
+#include "wasm3.h"
+
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_hhdm_request hhdm_response = {
     .id = LIMINE_HHDM_REQUEST_ID, .revision = 0
@@ -81,12 +83,61 @@ void kmain() {
 
     struct limine_framebuffer *framebuffer = framebuffer_response.response->framebuffers[0];
 
-    printf("HHDM Offset: 0x%lx\n", g_hhdm_offset);
-    printf("FrameBuffer Addr: 0x%lx\n", (uint64_t)framebuffer->address);
+    kprintf("HHDM Offset: 0x%lx\n", g_hhdm_offset);
+    kprintf("FrameBuffer Addr: 0x%lx\n", (uint64_t)framebuffer->address);
 
-    struct timespec ts_rel;
-    getTimeoutAbsolute(&ts_rel, 1500, 0);
-    printf("Absolute +1500ms: %llu sec, %llu nsec\n", ts_rel.tv_sec, ts_rel.tv_nsec);
+    kprintf("Initializing Wasm3...\n");
+    
+    IM3Environment env = m3_NewEnvironment();
+    if (!env) {
+        kprintf("Failed to create environment\n");
+        return;
+    }
+
+    IM3Runtime runtime = m3_NewRuntime(env, 1024 * 64, NULL); // 64KB 스택
+    if (!runtime) {
+        kprintf("Failed to create runtime\n");
+        return;
+    }
+
+    kprintf("Wasm3 Online!\n");
+
+    unsigned char fib_wasm[] = {
+        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f, 
+        0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x66, 0x69, 0x62, 0x00, 0x00, 0x0a, 0x1e, 0x01, 
+        0x1c, 0x00, 0x20, 0x00, 0x41, 0x02, 0x49, 0x04, 0x7f, 0x20, 0x00, 0x05, 0x20, 0x00, 0x41, 0x01, 
+        0x6b, 0x10, 0x00, 0x20, 0x00, 0x41, 0x02, 0x6b, 0x10, 0x00, 0x6a, 0x0b, 0x0b
+    };
+
+    IM3Module module;
+    M3Result result = m3_ParseModule(env, &module, fib_wasm, sizeof(fib_wasm));
+    if (result) {
+        kprintf("Parse error: %s\n", result);
+        return;
+    }
+
+    result = m3_LoadModule(runtime, module);
+    if (result) {
+        kprintf("Load error: %s\n", result);
+        return;
+    }
+
+    IM3Function f;
+    result = m3_FindFunction(&f, runtime, "fib");
+    if (result) {
+        kprintf("FindFunction error: %s\n", result);
+        return;
+    }
+
+    result = m3_CallV(f, 20);
+    if (result) {
+        kprintf("Call error: %s\n", result);
+        return;
+    }
+
+    int value = 0;
+    m3_GetResultsV(f, &value);
+    kprintf("WASM fib(20) = %d\n", value);
 
     while (1) {
         __asm__ volatile ("hlt");

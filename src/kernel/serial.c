@@ -2,6 +2,7 @@
 #include <stdint.h>
 
 #include "serial.h"
+#include "stdio.h"
 #include "interrupt.h"
 
 #pragma GCC diagnostic push
@@ -54,7 +55,7 @@ static char* serial_write_cb(const char* buf, void* user, int len) {
   return (char*)buf;
 }
 
-void printf(const char* format, ...) {
+void kprintf(const char* format, ...) {
   char tmp[STB_SPRINTF_MIN];
   va_list args;
   
@@ -68,4 +69,56 @@ void printf(const char* format, ...) {
 
   unlock_serial();
   restore_irq(state);
+}
+
+void serial_putc(char c) {
+    while ((inb(0x3F8 + 5) & 0x20) == 0);
+    outb(0x3F8, c);
+}
+
+size_t fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream) {
+    (void)stream;
+    const char* data = (const char*)ptr;
+    size_t total = size * nmemb;
+
+    irq_state_t state = save_irq_disable();
+    lock_serial();
+
+    for (size_t i = 0; i < total; i++) {
+        serial_putc(data[i]);
+    }
+
+    unlock_serial();
+    restore_irq(state);
+    
+    return nmemb;
+}
+
+int fputc(int c, FILE* stream) {
+    (void)stream;
+    irq_state_t state = save_irq_disable();
+    lock_serial();
+
+    serial_putc((char)c);
+
+    unlock_serial();
+    restore_irq(state);
+    return c;
+}
+
+int fflush(FILE* stream) {
+    (void)stream;
+    return 0; 
+}
+
+int snprintf(char* buf, size_t size, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    int result = stbsp_vsnprintf(buf, size, fmt, args);
+    va_end(args);
+    return result;
+}
+
+int vsnprintf(char* buf, size_t size, const char* fmt, va_list args) {
+    return stbsp_vsnprintf(buf, size, fmt, args);
 }

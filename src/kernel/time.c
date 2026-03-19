@@ -33,6 +33,10 @@ int clock_gettime(int clk_id, struct timespec *tp) {
     return 0;
 }
 
+clock_t clock() {
+    return (clock_t)g_ticks;
+}
+
 void getTimeoutRelative(struct timespec *ts, long long millis, long long nanos) {
     if (!ts) return;
 

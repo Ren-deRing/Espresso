@@ -23,14 +23,14 @@ void register_interrupt_handler(uint8_t vector, interrupt_handler_t handler) {
 void kernel_panic(const char* reason, interrupt_frame_t* frame) {
     __asm__ volatile ("cli");
 
-    printf("kernel panic!\n\n");
-    printf("REASON: %s\n", reason);
-    printf("----\n");
-    printf("  INT NO: %d | ERROR CODE: %d\n", frame->int_no, frame->error_code);
-    printf("  RIP: %016llx | CS: %02llx\n", frame->rip, frame->cs);
-    printf("  RFLAGS: %016llx | RSP: %016llx\n", frame->rflags, frame->rsp);
-    printf("----\n");
-    printf("SYSTEM HALTED.\n");
+    kprintf("kernel panic!\n\n");
+    kprintf("REASON: %s\n", reason);
+    kprintf("----\n");
+    kprintf("  INT NO: %d | ERROR CODE: %d\n", frame->int_no, frame->error_code);
+    kprintf("  RIP: %016llx | CS: %02llx\n", frame->rip, frame->cs);
+    kprintf("  RFLAGS: %016llx | RSP: %016llx\n", frame->rflags, frame->rsp);
+    kprintf("----\n");
+    kprintf("SYSTEM HALTED.\n");
 
     while (1) {
         __asm__ volatile ("hlt");

@@ -3,6 +3,7 @@
 #include <stdint.h>
 
 typedef long time_t;
+typedef uint64_t clock_t;
 
 struct tm {
     uint64_t tm_sec;   // 0-59
@@ -29,6 +30,7 @@ struct timeval {
 void time_init();
 
 int clock_gettime(int clk_id, struct timespec *tp);
+clock_t clock(void);
 int gettimeofday(struct timeval *tv, void *tz);
 
 void rtc_read_time(struct tm *time);

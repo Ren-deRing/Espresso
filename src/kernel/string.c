@@ -7,15 +7,12 @@ size_t strlen(const string str)
 	return i;
 }
 
-void atoi(char *str, int* a)
-{
-	int k = 0;
-	while(*str)
-	{
-		k = (k<<3)+(k<<1)+(*str)-'0';
-		str++;
-	}
-	*a = k;
+size_t strnlen(const char *s, size_t maxlen) {
+    size_t len;
+    for (len = 0; len < maxlen; len++) {
+        if (!s[len]) break;
+    }
+    return len;
 }
 
 size_t strcrl(string str, const char what, const char with)
@@ -101,6 +98,25 @@ int memcmp(const void* s1, const void* s2, size_t n) {
         }
     }
     return 0;
+}
+
+void* memmove(void* dest, const void* src, size_t n) {
+    unsigned char* d = (unsigned char*)dest;
+    const unsigned char* s = (const unsigned char*)src;
+
+    if (d == s || n == 0) return dest;
+
+    if (d < s) {
+        for (size_t i = 0; i < n; i++) {
+            d[i] = s[i];
+        }
+    } else {
+        for (size_t i = n; i > 0; i--) {
+            d[i - 1] = s[i - 1];
+        }
+    }
+
+    return dest;
 }
 
 void *memset(void *s, int c, size_t n) {

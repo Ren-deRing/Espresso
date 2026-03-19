@@ -102,7 +102,7 @@ page_t* pmm_alloc_pages(uint8_t order) {
     }
 
     if (page == NULL) {
-        printf("PMM: Out of memory at order %d\n", order);
+        kprintf("PMM: Out of memory at order %d\n", order);
         return NULL; // 맞는 블록이 없음!!
     }
 

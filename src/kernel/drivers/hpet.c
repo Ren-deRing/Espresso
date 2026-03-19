@@ -24,7 +24,7 @@ void hpet_init() {
     clk_period = (uint32_t)(hpet_base[0] >> 32);
 
     if (clk_period == 0) {
-        printf("Error: HPET clk_period is 0. Check VM settings.\n");
+        kprintf("Error: HPET clk_period is 0. Check VM settings.\n");
         return;
     }
 

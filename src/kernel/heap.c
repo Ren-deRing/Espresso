@@ -74,6 +74,25 @@ void* kmalloc_aligned(size_t size, size_t align) {
     return ptr;
 }
 
+void* krealloc(void* ptr, size_t size) {
+    if (!ptr) return kmalloc(size);
+    if (size == 0) {
+        kfree(ptr);
+        return NULL;
+    }
+
+    void* new_ptr = tlsf_realloc(g_tlsf_handle, ptr, size);
+
+    if (!new_ptr) {
+        size_t expansion_size = ALIGN_UP(size + 4096, 1024 * 1024);
+        if (expand_heap(expansion_size)) {
+            new_ptr = tlsf_realloc(g_tlsf_handle, ptr, size);
+        }
+    }
+
+    return new_ptr;
+}
+
 void kfree(void* ptr) { 
     if (ptr) tlsf_free(g_tlsf_handle, ptr);
 }

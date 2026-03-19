@@ -15,6 +15,8 @@ CPPFLAGS :=
 NASMFLAGS := -g
 LDFLAGS :=
 
+WASM3_DIR := src/runtime/wasm3
+
 # 크로스 컴파일 설정
 override CC += -target $(ARCH)-unknown-none-elf
 
@@ -39,8 +41,10 @@ override CFLAGS += \
     -fno-strict-aliasing \
 
 override CPPFLAGS := \
+	-nostdinc \
     -I src/kernel \
     -I src/kernel/include \
+	-I $(WASM3_DIR)/source \
     $(CPPFLAGS) \
     -MMD \
     -MP
@@ -59,11 +63,15 @@ override LDFLAGS += \
     -T linker.lds
 
 
+CLANG_RESOURCE_DIR := $(shell $(CC) -print-resource-dir)
+override CPPFLAGS += -I $(CLANG_RESOURCE_DIR)/include
+
 override CPPFLAGS += -D__$(ARCH)__
 
 # 소스 파일 찾기
 override COMMON_SRC := $(shell find -L src/kernel -type f 2>/dev/null | LC_ALL=C sort)
-override SRCFILES := $(COMMON_SRC)
+override WASM3_SRC := $(shell find -L $(WASM3_DIR)/source -type f -name "*.c" 2>/dev/null)
+override SRCFILES := $(COMMON_SRC) $(WASM3_SRC)
 
 override CFILES := $(filter %.c,$(SRCFILES))
 override ASFILES := $(filter %.S,$(SRCFILES))
