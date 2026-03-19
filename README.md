@@ -13,7 +13,7 @@ sudo apt install -y build-essential clang lld llvm nasm xorriso git qemu-system-
 
 ### Clone
 ```bash
-git clone --recursive [https://github.com/Ren-deRing/Espresso](https://github.com/Ren-deRing/Espresso)
+git clone --recursive https://github.com/Ren-deRing/Espresso
 cd Espresso
 ```
 
