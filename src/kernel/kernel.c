@@ -10,10 +10,13 @@
 #include "interrupt.h"
 #include "serial.h"
 
+#include "graphics.h"
+
 #include "acpi/acpi.h"
 #include "drivers/lapic.h"
 #include "drivers/hpet.h"
 #include "drivers/io.h"
+#include "ioapic.h"
 
 #include "time.h"
 
@@ -22,7 +25,7 @@
 #include "vmm.h"
 #include "heap.h"
 
-#include "wasm3.h"
+#include "runtime/runtime.h"
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_hhdm_request hhdm_response = {
@@ -37,6 +40,13 @@ static volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST_ID,
     .revision = 0
 };
+
+static uint8_t hex_to_val(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    return 0;
+}
 
 void kmain() {
     __asm__ volatile ("cli");
@@ -59,6 +69,7 @@ void kmain() {
 
     g_hhdm_offset = hhdm_response.response->offset;
     g_memmap = memmap_request.response;
+    g_framebuffer = framebuffer_response.response->framebuffers[0];
     
     serial_init();
 
@@ -74,70 +85,89 @@ void kmain() {
 
     hpet_init();
     lapic_init();
+    ioapic_init();
 
     lapic_timer_calibrate();
 
     time_init();
 
+    while (inb(0x64) & 0x01) {
+        inb(0x60);
+    }
+
+    runtime_init();
+
     __asm__ volatile ("sti");
 
-    struct limine_framebuffer *framebuffer = framebuffer_response.response->framebuffers[0];
+    char input[16384];
+    int index = 0;
 
-    kprintf("HHDM Offset: 0x%lx\n", g_hhdm_offset);
-    kprintf("FrameBuffer Addr: 0x%lx\n", (uint64_t)framebuffer->address);
+    while (1) {
+        kprintf("espresso@os:~$ ");
+        index = 0;
+        memset(input, 0, sizeof(input));
 
-    kprintf("Initializing Wasm3...\n");
-    
-    IM3Environment env = m3_NewEnvironment();
-    if (!env) {
-        kprintf("Failed to create environment\n");
-        return;
+        while (1) {
+            char c = serial_getc();
+
+            if (c == '\r' || c == '\n') {
+                serial_putc('\n');
+                input[index] = '\0';
+                break;
+            }
+            else if (c == 0x08 || c == 0x7F) {
+                if (index > 0) {
+                    index--;
+                    serial_putc('\b');
+                    serial_putc(' ');
+                    serial_putc('\b');
+                }
+            }
+            else if (index < 16383) {
+                input[index++] = c;
+                serial_putc(c);
+            }
+        }
+
+        if (strlen(input) == 0) continue;
+
+        if (strcmp(input, "help") == 0) {
+            kprintf("Commands: help, run, clear\n");
+        } 
+        else if (strncmp(input, "run ", 4) == 0) {
+            char* hex_str = input + 4;
+            
+            uint32_t str_len = strlen(hex_str);
+            uint8_t* wasm_bin = (uint8_t*)kmalloc(str_len / 2 + 1);
+            uint32_t bin_idx = 0;
+
+            for (uint32_t i = 0; i < str_len; ) {
+                if (hex_str[i] == ' ' || hex_str[i] == '\t') {
+                    i++;
+                    continue;
+                }
+
+                if (hex_str[i+1] == '\0') break;
+
+                wasm_bin[bin_idx++] = (hex_to_val(hex_str[i]) << 4) | hex_to_val(hex_str[i+1]);
+                
+                i += 2;
+            }
+
+            if (bin_idx > 0) {
+                kprintf("Converting hex string to %d bytes binary...\n", bin_idx);
+                runtime_execute(wasm_bin, bin_idx);
+            }
+            
+            kfree(wasm_bin);
+        }
+        else if (strcmp(input, "clear") == 0) {
+            kprintf("\033[2J\033[H");
+        }
+        else {
+            kprintf("Unknown command: %s\n", input);
+        }
     }
-
-    IM3Runtime runtime = m3_NewRuntime(env, 1024 * 64, NULL); // 64KB 스택
-    if (!runtime) {
-        kprintf("Failed to create runtime\n");
-        return;
-    }
-
-    kprintf("Wasm3 Online!\n");
-
-    unsigned char fib_wasm[] = {
-        0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f, 
-        0x03, 0x02, 0x01, 0x00, 0x07, 0x07, 0x01, 0x03, 0x66, 0x69, 0x62, 0x00, 0x00, 0x0a, 0x1e, 0x01, 
-        0x1c, 0x00, 0x20, 0x00, 0x41, 0x02, 0x49, 0x04, 0x7f, 0x20, 0x00, 0x05, 0x20, 0x00, 0x41, 0x01, 
-        0x6b, 0x10, 0x00, 0x20, 0x00, 0x41, 0x02, 0x6b, 0x10, 0x00, 0x6a, 0x0b, 0x0b
-    };
-
-    IM3Module module;
-    M3Result result = m3_ParseModule(env, &module, fib_wasm, sizeof(fib_wasm));
-    if (result) {
-        kprintf("Parse error: %s\n", result);
-        return;
-    }
-
-    result = m3_LoadModule(runtime, module);
-    if (result) {
-        kprintf("Load error: %s\n", result);
-        return;
-    }
-
-    IM3Function f;
-    result = m3_FindFunction(&f, runtime, "fib");
-    if (result) {
-        kprintf("FindFunction error: %s\n", result);
-        return;
-    }
-
-    result = m3_CallV(f, 20);
-    if (result) {
-        kprintf("Call error: %s\n", result);
-        return;
-    }
-
-    int value = 0;
-    m3_GetResultsV(f, &value);
-    kprintf("WASM fib(20) = %d\n", value);
 
     while (1) {
         __asm__ volatile ("hlt");

@@ -21,3 +21,21 @@ double copysign(double x, double y) { return __builtin_copysign(x, y); }
 // Others
 double pow(double x, double y)  { return __builtin_pow(x, y); }
 double fmod(double x, double y) { return __builtin_fmod(x, y); }
+
+// Float versions
+float sinf(float x)   { return __builtin_sinf(x); }
+float cosf(float x)   { return __builtin_cosf(x); }
+float tanf(float x)   { return __builtin_tanf(x); }
+float asinf(float x)  { return __builtin_asinf(x); }
+float acosf(float x)  { return __builtin_acosf(x); }
+float atanf(float x)  { return __builtin_atanf(x); }
+float atan2f(float y, float x) { return __builtin_atan2f(y, x); }
+
+// Double versions
+double sin(double x)  { return __builtin_sin(x); }
+double cos(double x)  { return __builtin_cos(x); }
+double tan(double x)  { return __builtin_tan(x); }
+double asin(double x) { return __builtin_asin(x); }
+double acos(double x) { return __builtin_acos(x); }
+double atan(double x) { return __builtin_atan(x); }
+double atan2(double y, double x) { return __builtin_atan2(y, x); }

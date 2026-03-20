@@ -122,3 +122,20 @@ int snprintf(char* buf, size_t size, const char* fmt, ...) {
 int vsnprintf(char* buf, size_t size, const char* fmt, va_list args) {
     return stbsp_vsnprintf(buf, size, fmt, args);
 }
+
+char serial_getc() {
+    char c;
+    while ((inb(0x3F8 + 5) & 1) == 0) {
+        __asm__ volatile ("pause");
+    }
+
+    irq_state_t state = save_irq_disable();
+    lock_serial();
+    
+    c = (char)inb(0x3F8);
+
+    unlock_serial();
+    restore_irq(state);
+    
+    return c;
+}

@@ -3,6 +3,8 @@
 
 #include "drivers/lapic.h"
 
+#include "ioapic.h"
+
 #include "serial.h"
 
 static volatile uint64_t g_ticks = 0;
@@ -10,6 +12,7 @@ static time_t g_boot_epoch = 0;
 
 void timer_handler(interrupt_frame_t *regs) {
     g_ticks++;
+    lapic_eoi();
 }
 
 void time_init() {
@@ -18,7 +21,8 @@ void time_init() {
     
     g_boot_epoch = mktime(&start_time);
 
-    lapic_timer_start(1, 0x20);
+    register_interrupt_handler(33, timer_handler);
+    lapic_timer_start(1, 33);
 }
 
 int clock_gettime(int clk_id, struct timespec *tp) {
